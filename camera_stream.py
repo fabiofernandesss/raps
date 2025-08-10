@@ -92,7 +92,7 @@ def crop_with_margin(img, rect, margin_ratio: float = 0.1):
     y2 = min(img.shape[0], y + h + margin_h)
     return img[y1:y2, x1:x2]
 
-def encode_image_to_base64(img_bgr, target_size=(160, 160), quality: int = 80) -> str:
+def encode_image_to_base64(img_bgr, target_size=(300, 300), quality: int = 85) -> str:
     """Codifica imagem para base64"""
     img_resized = cv2.resize(img_bgr, target_size)
     encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), quality]
@@ -257,10 +257,17 @@ def try_open_camera(target_width=640, target_height=480, fps=30):
                     print(f"✅ Câmera funcionando no índice {idx} com API {api_name}")
                     print(f"   Resolução detectada: {test_frame.shape[1]}x{test_frame.shape[0]}")
                     
-                    # Configura resolução básica (160x120 que sabemos que funciona)
-                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 160)
-                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 120)
+                    # Configura resolução melhorada (640x480 para melhor qualidade)
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                    
+                    # Se 640x480 não funcionar, tenta 320x240
+                    ret_test, frame_test = cap.read()
+                    if not ret_test or frame_test is None:
+                        print("   ⚠️ 640x480 não funcionou, tentando 320x240...")
+                        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+                        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
                     
                     # Testa novamente após configuração
                     ret2, test_frame2 = cap.read()
