@@ -80,11 +80,22 @@ def encode_image_to_base64(img_bgr, target_size=(160, 160), quality: int = 80) -
 
 def try_open_camera(width=320, height=240, fps=15):
     print("Abrindo webcam...")
-    # Tenta diferentes APIs e índices (útil no Windows)
-    api_prefs = [cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY]
+    # Detecta sistema operacional para usar APIs apropriadas
+    import platform
+    system = platform.system().lower()
+    
+    if system == "windows":
+        # APIs para Windows
+        api_prefs = [cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY]
+    else:
+        # APIs para Linux/Raspberry Pi
+        api_prefs = [cv2.CAP_V4L2, cv2.CAP_ANY]
+    
     indices = [0, 1, 2]
+    
     for api in api_prefs:
         for idx in indices:
+            print(f"Tentando índice {idx} com API {api}...")
             cap = cv2.VideoCapture(idx, api)
             if not cap.isOpened():
                 cap.release()
@@ -96,10 +107,22 @@ def try_open_camera(width=320, height=240, fps=15):
             time.sleep(0.15)
             ret, frame = cap.read()
             if ret and frame is not None:
-                print(f"Webcam aberta no índice {idx} usando API {api}.")
+                print(f"✅ Webcam aberta no índice {idx} usando API {api}.")
                 return cap
             else:
                 cap.release()
+    
+    # Se não conseguiu abrir, tenta sem especificar API
+    print("Tentando abrir câmera sem especificar API...")
+    for idx in indices:
+        cap = cv2.VideoCapture(idx)
+        if cap.isOpened():
+            ret, frame = cap.read()
+            if ret and frame is not None:
+                print(f"✅ Webcam aberta no índice {idx} (sem API específica).")
+                return cap
+            cap.release()
+    
     return None
 
 
@@ -222,12 +245,26 @@ def main():
     # Abrir câmera com tentativa de múltiplas APIs/índices
     cap = try_open_camera(width=320, height=240, fps=15)
     if cap is None:
-        print("Erro: não foi possível acessar a webcam.")
-        print("Dicas:")
-        print(" - Feche aplicativos que possam estar usando a câmera (Teams, Zoom, Chrome, etc.)")
-        print(" - Verifique as permissões de Câmera no Windows: Configurações > Privacidade > Câmera")
-        print(" - Tente outra porta USB ou outro índice de dispositivo (0, 1, 2)")
-        print(" - Se necessário, edite o código para setar explicitamente CAP_DSHOW ou CAP_MSMF")
+        import platform
+        system = platform.system().lower()
+        
+        print("❌ Erro: não foi possível acessar a webcam.")
+        print("\n🔧 Dicas para solução:")
+        
+        if system == "windows":
+            print(" - Feche aplicativos que possam estar usando a câmera (Teams, Zoom, Chrome, etc.)")
+            print(" - Verifique as permissões de Câmera no Windows: Configurações > Privacidade > Câmera")
+            print(" - Tente outra porta USB ou outro índice de dispositivo (0, 1, 2)")
+        else:
+            print(" - Verifique se a câmera está conectada: lsusb")
+            print(" - Verifique dispositivos de vídeo: ls /dev/video*")
+            print(" - Teste a câmera manualmente: fswebcam test.jpg")
+            print(" - Instale dependências: sudo apt install fswebcam v4l-utils")
+            print(" - Verifique permissões: sudo usermod -a -G video $USER")
+            print(" - Reinicie após adicionar ao grupo video")
+        
+        print(" - Tente outra porta USB")
+        print(" - Verifique se outro processo está usando a câmera")
         sys.exit(1)
 
     last_saved_ts = 0.0
