@@ -13,8 +13,8 @@ from typing import List, Tuple
 DB_PATH = os.path.join(os.path.dirname(__file__), "faces.db")
 
 # Configurações Supabase: permite override por ambiente, mas define padrão com sua URL/anon key
-SUPABASE_URL = os.environ.get("SUPABASE_URL") or "https://uqmwhtpcsaqievcmpgni.supabase.co"
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY") or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxbXdodHBjc2FxaWV2Y21wZ25pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1MTcwOTMsImV4cCI6MjA2NzA5MzA5M30.9TOMJu7xZm-YQV51N4TbdjEW3PsKagyAV5jQYf128fQ"
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or ""
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY") or ""
 SUPABASE_TABLE = os.environ.get("SUPABASE_TABLE", "captures")
 DEVICE_ID = os.environ.get("DEVICE_ID") or os.environ.get("COMPUTERNAME") or os.environ.get("HOSTNAME") or "raspi-01"
 

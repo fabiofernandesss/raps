@@ -32,7 +32,7 @@ Exemplos:
   - `export SUPABASE_ANON_KEY="SEU_ANON_KEY"`
   - `export DEVICE_ID="raspi-01"`
 
-Dica: Não commitar arquivos `.env`. Use o gerenciador de segredos do seu ambiente.
+Dica: Não commitar arquivos `.env`, `env.ps1` ou `env.sh`. Use o gerenciador de segredos do seu ambiente.
 
 ## Instalação (PC ou Raspberry Pi)
 1. Crie e ative um ambiente virtual
