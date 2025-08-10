@@ -49,114 +49,57 @@ def try_open_camera(target_width=640, target_height=480, fps=30):
     """Tenta abrir a câmera com a melhor resolução possível"""
     print("🎥 Abrindo câmera para streaming...")
     
-    # Lista de resoluções para testar (da maior para menor)
-    resolutions = [
-        (1920, 1080),  # Full HD
-        (1280, 720),   # HD
-        (960, 720),    # HD alternativo
-        (800, 600),    # SVGA
-        (640, 480),    # VGA
-        (480, 360),    # Baixa
-        (320, 240),    # Muito baixa
-        (160, 120)     # Mínima
-    ]
-    
-    # Detecta sistema operacional para usar APIs apropriadas
-    system = platform.system().lower()
-    
-    # Prioriza API padrão primeiro (funcionou no diagnóstico)
-    if system == "windows":
-        api_prefs = [cv2.CAP_ANY, cv2.CAP_DSHOW, cv2.CAP_MSMF]
-    else:
-        api_prefs = [cv2.CAP_ANY, cv2.CAP_V4L2]
-    
+    # Usa a mesma abordagem que funciona no test_camera_usb.py
     indices = [0, 1, 2]
+    apis = [("ANY", cv2.CAP_ANY), ("V4L2", cv2.CAP_V4L2), ("DEFAULT", None)]
     
-    # Tenta primeiro com API padrão (sem especificar)
-    print("Tentando abrir câmera com API padrão...")
+    print("Tentando abrir câmera com diferentes APIs...")
     for idx in indices:
-        print(f"Tentando índice {idx}...")
-        cap = cv2.VideoCapture(idx)
-        
-        if not cap.isOpened():
-            cap.release()
-            continue
-        
-        # Testa se consegue ler um frame primeiro
-        ret, test_frame = cap.read()
-        if ret and test_frame is not None:
-            print(f"✅ Câmera detectada no índice {idx}")
-            print("🔍 Testando resoluções disponíveis...")
+        for api_name, api_code in apis:
+            print(f"Tentando índice {idx} com API {api_name}...")
             
-            # Testa resoluções da maior para menor
-            best_resolution = None
-            for width, height in resolutions:
-                print(f"   Testando {width}x{height}...")
-                success, actual_w, actual_h, actual_fps = test_resolution(cap, width, height, fps)
-                
-                if success:
-                    print(f"   ✅ {width}x{height} → {actual_w}x{actual_h} @ {actual_fps}fps")
-                    best_resolution = (actual_w, actual_h, actual_fps)
-                    break
+            try:
+                if api_code is not None:
+                    cap = cv2.VideoCapture(idx, api_code)
                 else:
-                    print(f"   ❌ {width}x{height} não suportada")
-            
-            if best_resolution:
-                w, h, f = best_resolution
-                print(f"🎯 Melhor resolução encontrada: {w}x{h} @ {f}fps")
-                return cap
-            else:
-                print("❌ Nenhuma resolução funcionou")
-                cap.release()
-        else:
-            cap.release()
-    
-    # Se API padrão falhou, tenta com APIs específicas
-    print("Tentando com APIs específicas...")
-    for api in api_prefs[1:]:  # Pula CAP_ANY que já foi testado
-        for idx in indices:
-            print(f"Tentando índice {idx} com API {api}...")
-            cap = cv2.VideoCapture(idx, api)
-            
-            if not cap.isOpened():
-                cap.release()
-                continue
-            
-            # Testa se consegue ler um frame primeiro
-            ret, test_frame = cap.read()
-            if ret and test_frame is not None:
-                print(f"✅ Câmera detectada no índice {idx} com API {api}")
-                print("🔍 Testando resoluções disponíveis...")
+                    cap = cv2.VideoCapture(idx)
                 
-                # Testa resoluções da maior para menor
-                best_resolution = None
-                for width, height in resolutions:
-                    print(f"   Testando {width}x{height}...")
-                    success, actual_w, actual_h, actual_fps = test_resolution(cap, width, height, fps)
-                    
-                    if success:
-                        print(f"   ✅ {width}x{height} → {actual_w}x{actual_h} @ {actual_fps}fps")
-                        best_resolution = (actual_w, actual_h, actual_fps)
-                        break
-                    else:
-                        print(f"   ❌ {width}x{height} não suportada")
-                
-                if best_resolution:
-                    w, h, f = best_resolution
-                    print(f"🎯 Melhor resolução encontrada: {w}x{h} @ {f}fps")
-                    return cap
-                else:
-                    print("❌ Nenhuma resolução funcionou")
+                if not cap.isOpened():
                     cap.release()
-            else:
+                    continue
+                
+                # Testa captura simples primeiro (como no diagnóstico)
+                ret, test_frame = cap.read()
+                if ret and test_frame is not None:
+                    print(f"✅ Câmera funcionando no índice {idx} com API {api_name}")
+                    print(f"   Resolução detectada: {test_frame.shape[1]}x{test_frame.shape[0]}")
+                    
+                    # Configura resolução básica (160x120 que sabemos que funciona)
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 160)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 120)
+                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                    
+                    # Testa novamente após configuração
+                    ret2, test_frame2 = cap.read()
+                    if ret2 and test_frame2 is not None:
+                        actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                        actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                        print(f"   ✅ Configuração aplicada: {actual_w}x{actual_h}")
+                        return cap, actual_w, actual_h
+                
                 cap.release()
+                 
+             except Exception as e:
+                 print(f"   ❌ Erro com índice {idx} API {api_name}: {e}")
+                 if 'cap' in locals():
+                     cap.release()
     
     print("❌ Erro: não foi possível acessar a webcam")
     print("💡 Dicas:")
     print("   - Verifique se a câmera está conectada")
     print("   - Tente desconectar e reconectar a câmera USB")
     print("   - Execute: python test_camera_usb.py para diagnóstico")
-    return None
+    return None, 0, 0
 
 def capture_frames():
     """Thread para capturar frames continuamente"""
@@ -383,15 +326,13 @@ def start_camera():
     print("🚀 Iniciando sistema de stream...")
     
     # Tenta abrir a câmera
-    camera = try_open_camera(target_width=640, target_height=480, fps=30)
+    camera, width, height = try_open_camera(target_width=640, target_height=480, fps=30)
     
     if camera is None:
-        print("❌ Erro: não foi possível acessar a webcam")
-        print("💡 Dicas:")
-        print("   - Verifique se a câmera está conectada")
-        print("   - Tente desconectar e reconectar a câmera USB")
-        print("   - Execute: python test_camera_usb.py para diagnóstico")
+        print("❌ Falha ao iniciar o sistema de stream")
         return False
+    
+    print(f"✅ Câmera inicializada com sucesso: {width}x{height}")
     
     # Inicia thread de captura
     is_streaming = True
