@@ -78,7 +78,7 @@ def encode_image_to_base64(img_bgr, target_size=(160, 160), quality: int = 80) -
     return base64.b64encode(buf.tobytes()).decode("ascii")
 
 
-def try_open_camera(width=320, height=240, fps=15):
+def try_open_camera(width=320, height=240, fps=15, retry_delay=2.0):
     print("Abrindo webcam...")
     # Detecta sistema operacional para usar APIs apropriadas
     import platform
@@ -92,6 +92,11 @@ def try_open_camera(width=320, height=240, fps=15):
         api_prefs = [cv2.CAP_V4L2, cv2.CAP_ANY]
     
     indices = [0, 1, 2]
+    
+    # Aguarda um pouco para dispositivos USB se estabilizarem após boot
+    if retry_delay > 0:
+        print(f"Aguardando {retry_delay}s para dispositivos USB se estabilizarem...")
+        time.sleep(retry_delay)
     
     for api in api_prefs:
         for idx in indices:
@@ -124,6 +129,15 @@ def try_open_camera(width=320, height=240, fps=15):
             cap.release()
     
     return None
+
+
+def reconnect_camera(cap, width=320, height=240, fps=15):
+    """Tenta reconectar a câmera quando há falha na leitura"""
+    print("⚠️ Falha na câmera detectada. Tentando reconectar...")
+    if cap:
+        cap.release()
+    time.sleep(1.0)  # Aguarda um pouco antes de tentar reconectar
+    return try_open_camera(width, height, fps, retry_delay=0)
 
 
 # ============== SUPABASE SYNC ==============
@@ -243,7 +257,7 @@ def main():
         sys.exit(1)
 
     # Abrir câmera com tentativa de múltiplas APIs/índices
-    cap = try_open_camera(width=320, height=240, fps=15)
+    cap = try_open_camera(width=320, height=240, fps=15, retry_delay=3.0)
     if cap is None:
         import platform
         system = platform.system().lower()
@@ -262,6 +276,7 @@ def main():
             print(" - Instale dependências: sudo apt install fswebcam v4l-utils")
             print(" - Verifique permissões: sudo usermod -a -G video $USER")
             print(" - Reinicie após adicionar ao grupo video")
+            print(" - Tente desconectar e reconectar a câmera USB")
         
         print(" - Tente outra porta USB")
         print(" - Verifique se outro processo está usando a câmera")
@@ -276,16 +291,38 @@ def main():
         print("[Aviso] SUPABASE_URL/SUPABASE_ANON_KEY não configurados. Registros ficarão locais até configurar.")
 
     print("Rodando. Pressione Ctrl+C para sair.")
+    consecutive_failures = 0
+    max_failures = 10  # Máximo de falhas consecutivas antes de tentar reconectar
+    
     try:
         while True:
             ret, frame = cap.read()
             if not ret:
+                consecutive_failures += 1
+                print(f"⚠️ Falha na leitura da câmera ({consecutive_failures}/{max_failures})")
+                
+                # Se muitas falhas consecutivas, tenta reconectar
+                if consecutive_failures >= max_failures:
+                    print("🔄 Muitas falhas consecutivas. Tentando reconectar câmera...")
+                    new_cap = reconnect_camera(cap, width=320, height=240, fps=15)
+                    if new_cap is not None:
+                        cap = new_cap
+                        consecutive_failures = 0
+                        print("✅ Câmera reconectada com sucesso!")
+                    else:
+                        print("❌ Falha na reconexão. Aguardando 10s antes de tentar novamente...")
+                        time.sleep(10)
+                        consecutive_failures = 0  # Reset para tentar novamente
+                
                 # Tentativa de sync mesmo sem frame, para não acumular
                 if (time.time() - last_sync_ts) >= sync_interval:
                     sync_supabase(max_batch=50)
                     last_sync_ts = time.time()
-                time.sleep(0.1)
+                time.sleep(0.5)  # Aguarda um pouco mais quando há falhas
                 continue
+            
+            # Reset contador de falhas quando consegue ler frame
+            consecutive_failures = 0
 
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             # Parâmetros mais leves: maior scaleFactor reduz custo, minNeighbors equilibrado
