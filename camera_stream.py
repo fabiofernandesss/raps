@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Stream de câmera ao vivo via web
-Disponibiliza o feed da câmera em tempo real através de uma URL
+Stream de câmera ao vivo via web com detecção facial integrada
+Disponibiliza o feed da câmera em tempo real e captura faces automaticamente
 """
 
 import cv2
@@ -10,6 +10,13 @@ import threading
 from flask import Flask, Response, render_template_string
 import os
 import platform
+import sqlite3
+import base64
+from datetime import datetime
+import shutil
+import tempfile
+import requests
+from typing import List, Tuple
 
 app = Flask(__name__)
 
@@ -18,6 +25,182 @@ camera = None
 frame_lock = threading.Lock()
 latest_frame = None
 is_streaming = False
+face_detector = None
+detection_enabled = True
+
+# Configurações do banco de dados e Supabase
+DB_PATH = os.path.join(os.path.dirname(__file__), "faces.db")
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or ""
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY") or ""
+SUPABASE_TABLE = os.environ.get("SUPABASE_TABLE", "captures")
+DEVICE_ID = os.environ.get("DEVICE_ID") or os.environ.get("COMPUTERNAME") or os.environ.get("HOSTNAME") or "raspi-01"
+
+# Controle de detecção facial
+last_saved_ts = 0.0
+cooldown_seconds = 3.0
+last_sync_ts = 0.0
+sync_interval = 5.0
+
+# Funções do banco de dados e detecção facial
+def init_db(db_path: str = DB_PATH):
+    """Inicializa o banco de dados SQLite"""
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS captures (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            time TEXT NOT NULL,
+            image_base64 TEXT NOT NULL
+        )
+        """
+    )
+    conn.commit()
+    conn.close()
+
+def save_capture(image_b64: str, db_path: str = DB_PATH):
+    """Salva uma captura no banco de dados local"""
+    now = datetime.now()
+    date_str = now.strftime("%Y-%m-%d")
+    time_str = now.strftime("%H:%M:%S")
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO captures(date, time, image_base64) VALUES (?, ?, ?)",
+        (date_str, time_str, image_b64),
+    )
+    conn.commit()
+    conn.close()
+
+def get_biggest_face(faces):
+    """Retorna a maior face detectada"""
+    if len(faces) == 0:
+        return None
+    areas = [w * h for (x, y, w, h) in faces]
+    max_idx = areas.index(max(areas))
+    return faces[max_idx]
+
+def crop_with_margin(img, rect, margin_ratio: float = 0.1):
+    """Recorta a face com margem"""
+    x, y, w, h = rect
+    margin_w = int(w * margin_ratio)
+    margin_h = int(h * margin_ratio)
+    x1 = max(0, x - margin_w)
+    y1 = max(0, y - margin_h)
+    x2 = min(img.shape[1], x + w + margin_w)
+    y2 = min(img.shape[0], y + h + margin_h)
+    return img[y1:y2, x1:x2]
+
+def encode_image_to_base64(img_bgr, target_size=(160, 160), quality: int = 80) -> str:
+    """Codifica imagem para base64"""
+    img_resized = cv2.resize(img_bgr, target_size)
+    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), quality]
+    _, buffer = cv2.imencode('.jpg', img_resized, encode_param)
+    img_b64 = base64.b64encode(buffer).decode('utf-8')
+    return img_b64
+
+def _fetch_pending(limit: int = 20) -> List[Tuple[int, str, str, str]]:
+    """Busca registros pendentes no banco local"""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT id, date, time, image_base64 FROM captures LIMIT ?", (limit,))
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+def _delete_local(ids: List[int]):
+    """Remove registros do banco local"""
+    if not ids:
+        return
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    placeholders = ','.join(['?'] * len(ids))
+    cur.execute(f"DELETE FROM captures WHERE id IN ({placeholders})", ids)
+    conn.commit()
+    conn.close()
+
+def sync_supabase(max_batch: int = 20):
+    """Sincroniza dados locais com Supabase"""
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        return
+    
+    try:
+        pending = _fetch_pending(max_batch)
+        if not pending:
+            return
+        
+        headers = {
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+        }
+        
+        # Tenta envio em lote
+        batch_data = []
+        for row_id, date, time, image_base64 in pending:
+            batch_data.append({
+                "date": date,
+                "time": time,
+                "device_id": DEVICE_ID,
+                "image_base64": image_base64
+            })
+        
+        url = f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}"
+        response = requests.post(url, json=batch_data, headers=headers, timeout=10)
+        
+        if response.status_code in [200, 201]:
+            # Sucesso no lote: remove todos
+            ids_to_delete = [row[0] for row in pending]
+            _delete_local(ids_to_delete)
+            print(f"✅ Sincronizados {len(pending)} registros em lote")
+        else:
+            # Falha no lote: tenta individual
+            print(f"⚠️ Falha no lote ({response.status_code}), tentando individual...")
+            success_ids = []
+            for row_id, date, time, image_base64 in pending:
+                single_data = {
+                    "date": date,
+                    "time": time,
+                    "device_id": DEVICE_ID,
+                    "image_base64": image_base64
+                }
+                single_response = requests.post(url, json=single_data, headers=headers, timeout=5)
+                if single_response.status_code in [200, 201]:
+                    success_ids.append(row_id)
+            
+            if success_ids:
+                _delete_local(success_ids)
+                print(f"✅ Sincronizados {len(success_ids)}/{len(pending)} registros individualmente")
+    
+    except Exception as e:
+        print(f"❌ Erro na sincronização: {e}")
+
+def init_face_detector():
+    """Inicializa o detector de faces"""
+    global face_detector
+    try:
+        cascade_path = os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")
+        face_detector = cv2.CascadeClassifier(cascade_path)
+        
+        if face_detector.empty():
+            # Fallback para caminhos com acentos
+            tmp_dir = tempfile.gettempdir()
+            tmp_cascade = os.path.join(tmp_dir, "haarcascade_frontalface_default.xml")
+            if not os.path.exists(tmp_cascade):
+                shutil.copyfile(cascade_path, tmp_cascade)
+            face_detector = cv2.CascadeClassifier(tmp_cascade)
+        
+        if face_detector.empty():
+            print("❌ Erro: não foi possível carregar o classificador Haar Cascade")
+            return False
+        
+        print("✅ Detector de faces carregado com sucesso")
+        return True
+    except Exception as e:
+        print(f"❌ Erro ao carregar detector de faces: {e}")
+        return False
 
 def test_resolution(cap, width, height, fps=30):
     """Testa se uma resolução específica funciona na câmera"""
@@ -102,8 +285,9 @@ def try_open_camera(target_width=640, target_height=480, fps=30):
     return None, 0, 0
 
 def capture_frames():
-    """Thread para capturar frames continuamente"""
-    global camera, latest_frame, is_streaming
+    """Thread para capturar frames continuamente com detecção facial"""
+    global camera, latest_frame, is_streaming, face_detector
+    global last_saved_ts, last_sync_ts
     
     while is_streaming:
         if camera is None:
@@ -112,8 +296,47 @@ def capture_frames():
         
         ret, frame = camera.read()
         if ret and frame is not None:
+            # Cria uma cópia para processamento
+            display_frame = frame.copy()
+            
+            # Detecção facial se o detector estiver carregado
+            if face_detector is not None and detection_enabled:
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                faces = face_detector.detectMultiScale(
+                    gray,
+                    scaleFactor=1.1,
+                    minNeighbors=5,
+                    minSize=(30, 30)
+                )
+                
+                # Desenha retângulos nas faces detectadas
+                for (x, y, w, h) in faces:
+                    cv2.rectangle(display_frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                
+                # Salva captura se faces foram detectadas e passou o cooldown
+                current_time = time.time()
+                if len(faces) > 0 and (current_time - last_saved_ts) >= cooldown_seconds:
+                    try:
+                        biggest_face = get_biggest_face(faces)
+                        if biggest_face is not None:
+                            face_crop = crop_with_margin(frame, biggest_face)
+                            image_b64 = encode_image_to_base64(face_crop)
+                            save_capture(image_b64)
+                            last_saved_ts = current_time
+                            print(f"💾 Face capturada e salva ({len(faces)} faces detectadas)")
+                    except Exception as e:
+                        print(f"❌ Erro ao salvar captura: {e}")
+                
+                # Sincronização periódica com Supabase
+                if (current_time - last_sync_ts) >= sync_interval:
+                    try:
+                        sync_supabase()
+                        last_sync_ts = current_time
+                    except Exception as e:
+                        print(f"❌ Erro na sincronização: {e}")
+            
             with frame_lock:
-                latest_frame = frame.copy()
+                latest_frame = display_frame.copy()
         else:
             print("⚠️ Falha na leitura da câmera")
             time.sleep(0.1)
@@ -355,29 +578,58 @@ def stop_camera():
     
     print("✅ Sistema de stream parado")
 
+def main():
+    """Função principal"""
+    global camera, last_saved_ts, last_sync_ts
+    
+    print("🎥 Iniciando sistema de stream da câmera com detecção facial...")
+    
+    # Inicializa banco de dados
+    print("📊 Inicializando banco de dados...")
+    init_db()
+    
+    # Inicializa detector de faces
+    print("🔍 Carregando detector de faces...")
+    if not init_face_detector():
+        print("⚠️ Continuando sem detecção facial")
+    
+    # Inicializa timestamps
+    current_time = time.time()
+    last_saved_ts = current_time
+    last_sync_ts = current_time
+    
+    if start_camera():
+        print("\n" + "="*50)
+        print("🌐 SERVIDOR DE STREAM INICIADO")
+        print("="*50)
+        print("📱 Interface Web: http://localhost:5000")
+        print("📡 Stream Direto: http://localhost:5000/video_feed")
+        print("📊 Status: http://localhost:5000/status")
+        print("\n💡 Para acessar de outros dispositivos na rede:")
+        print("   Substitua 'localhost' pelo IP do Raspberry Pi")
+        print("   Exemplo: http://192.168.1.100:5000")
+        print("\n🔧 Para parar o servidor: Ctrl+C")
+        print("🎯 Detecção facial ativa - faces serão capturadas automaticamente")
+        print("="*50)
+        
+        # Inicia o servidor Flask
+        app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    else:
+        print("❌ Falha ao iniciar o sistema de stream")
+
 if __name__ == '__main__':
     try:
-        if start_camera():
-            print("\n" + "="*50)
-            print("🌐 SERVIDOR DE STREAM INICIADO")
-            print("="*50)
-            print("📱 Interface Web: http://localhost:5000")
-            print("📡 Stream Direto: http://localhost:5000/video_feed")
-            print("📊 Status: http://localhost:5000/status")
-            print("\n💡 Para acessar de outros dispositivos na rede:")
-            print("   Substitua 'localhost' pelo IP do Raspberry Pi")
-            print("   Exemplo: http://192.168.1.100:5000")
-            print("\n🔧 Para parar o servidor: Ctrl+C")
-            print("="*50)
-            
-            # Inicia o servidor Flask
-            app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
-        else:
-            print("❌ Falha ao iniciar o sistema de stream")
+        main()
     
     except KeyboardInterrupt:
         print("\n🛑 Parando servidor...")
         stop_camera()
+        # Sincronização final
+        try:
+            sync_supabase()
+            print("✅ Sincronização final concluída")
+        except:
+            pass
         print("✅ Servidor parado com sucesso")
     
     except Exception as e:
