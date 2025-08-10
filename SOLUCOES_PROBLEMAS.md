@@ -30,6 +30,9 @@
 - `start_faces_improved.sh` - Script de inicialização melhorado
 - `setup_autostart.sh` - Configuração automática do sistema
 - `test_camera_usb.py` - Script de diagnóstico completo para problemas de câmera USB
+- `camera_stream.py` - Servidor Flask para stream de vídeo em tempo real
+- `start_stream.sh` - Script para iniciar o servidor de stream
+- `html/index.html` - Interface web atualizada com visualização do stream
 - `SOLUCOES_PROBLEMAS.md` - Este arquivo de documentação
 
 ## 🚀 Como Aplicar as Correções
@@ -220,42 +223,110 @@ python test_camera_usb.py
 - Quiser verificar se a câmera está funcionando corretamente
 - Precisar de informações detalhadas para diagnóstico
 
+## 📹 Sistema de Stream ao Vivo
+
+### **Novo: Stream da Câmera via Web**
+Sistema completo para visualizar a câmera ao vivo através do navegador:
+
+#### **Iniciar o Stream:**
+```bash
+# Método 1: Script automático
+cd ~/raps
+chmod +x start_stream.sh
+./start_stream.sh
+
+# Método 2: Execução direta
+cd ~/raps
+source .venv/bin/activate
+python camera_stream.py
+```
+
+#### **URLs de Acesso:**
+- **Interface Web Completa:** `http://[IP_DO_RASPBERRY]:5000`
+- **Stream Direto (MJPEG):** `http://[IP_DO_RASPBERRY]:5000/video_feed`
+- **Status da Câmera:** `http://[IP_DO_RASPBERRY]:5000/status`
+
+#### **Características do Stream:**
+- ✅ **Resolução:** 640x480 pixels
+- ✅ **Taxa de Quadros:** ~30 FPS
+- ✅ **Formato:** MJPEG (compatível com navegadores)
+- ✅ **Latência:** Baixa (tempo real)
+- ✅ **Acesso:** Qualquer dispositivo na rede local
+- ✅ **Interface:** Web responsiva com controles
+- ✅ **Timestamp:** Exibido em cada frame
+- ✅ **Auto-reconexão:** Em caso de falha
+
+#### **Compatibilidade:**
+- 🌐 **Navegadores:** Chrome, Firefox, Safari, Edge
+- 📱 **Dispositivos:** PC, smartphone, tablet
+- 🎥 **Software:** VLC, OBS Studio, ffmpeg
+- 📺 **Smart TVs:** Com navegador web
+
+#### **Uso com Outros Softwares:**
+```bash
+# VLC Media Player
+vlc http://[IP_DO_RASPBERRY]:5000/video_feed
+
+# ffmpeg (gravação)
+ffmpeg -i http://[IP_DO_RASPBERRY]:5000/video_feed -c copy output.mp4
+
+# OBS Studio
+# Adicionar fonte > Mídia > URL: http://[IP_DO_RASPBERRY]:5000/video_feed
+```
+
 ## 🚀 Próximos Passos
 
 1. **Copie os arquivos para o Raspberry Pi**:
    ```bash
    # No seu computador, copie os arquivos via SCP ou pendrive
-   scp start_faces_improved.sh setup_autostart.sh test_camera_usb.py pi@raspberrypi:~/raps/
+   scp start_faces_improved.sh setup_autostart.sh test_camera_usb.py camera_stream.py start_stream.sh pi@raspberrypi:~/raps/
    ```
 
-2. **Execute o diagnóstico primeiro**:
+2. **Instale dependências atualizadas**:
    ```bash
    cd ~/raps
    source .venv/bin/activate
+   pip install flask
+   ```
+
+3. **Execute o diagnóstico primeiro**:
+   ```bash
    python test_camera_usb.py
    ```
 
-3. **Execute o script de configuração**:
+4. **Teste o sistema de stream**:
    ```bash
-   cd ~/raps
+   # Iniciar o stream
+   chmod +x start_stream.sh
+   ./start_stream.sh
+   
+   # Acessar via navegador:
+   # http://[IP_DO_RASPBERRY]:5000
+   ```
+
+5. **Execute o script de configuração**:
+   ```bash
    chmod +x setup_autostart.sh
    ./setup_autostart.sh
    ```
 
-4. **Teste o script manualmente**:
+6. **Teste o script manualmente**:
    ```bash
-   cd ~/raps
    ./start_faces_improved.sh
    ```
 
-5. **Reinicie o sistema para testar a inicialização automática**:
+7. **Reinicie o sistema para testar a inicialização automática**:
    ```bash
    sudo reboot
    ```
 
-6. **Monitore os logs após a reinicialização**:
+8. **Monitore os logs após a reinicialização**:
    ```bash
+   # Logs de inicialização
    tail -f ~/raps/logs/startup.log
+   
+   # Logs do stream
+   tail -f ~/raps/logs/camera_stream.log
    ```
 
 ## 📋 Resumo das Soluções Implementadas

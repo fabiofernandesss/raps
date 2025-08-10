@@ -11,3 +11,4 @@
 numpy>=2.0.0
 opencv-python==4.10.0.84
 requests>=2.31.0
+Flask>=2.3.0
