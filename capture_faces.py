@@ -78,6 +78,54 @@ def encode_image_to_base64(img_bgr, target_size=(160, 160), quality: int = 80) -
     return base64.b64encode(buf.tobytes()).decode("ascii")
 
 
+def check_usb_devices():
+    """Verifica se há dispositivos USB conectados (especialmente câmeras)"""
+    import platform
+    import subprocess
+    
+    system = platform.system().lower()
+    
+    if system == "linux":
+        try:
+            # Verifica dispositivos USB
+            result = subprocess.run(['lsusb'], capture_output=True, text=True, timeout=5)
+            usb_devices = result.stdout.lower()
+            
+            # Verifica dispositivos de vídeo
+            video_result = subprocess.run(['ls', '/dev/video*'], capture_output=True, text=True, timeout=5)
+            video_devices = video_result.stdout
+            
+            print(f"📹 Dispositivos de vídeo encontrados: {video_devices.strip() if video_devices else 'Nenhum'}")
+            
+            # Procura por câmeras USB comuns
+            camera_keywords = ['camera', 'webcam', 'usb', 'video', 'capture']
+            has_camera = any(keyword in usb_devices for keyword in camera_keywords)
+            
+            return len(video_devices.strip()) > 0 or has_camera
+            
+        except Exception as e:
+            print(f"⚠️ Erro ao verificar dispositivos USB: {e}")
+            return True  # Assume que há dispositivos se não conseguir verificar
+    
+    return True  # Para Windows, assume que há dispositivos
+
+
+def wait_for_usb_devices(max_wait=30, check_interval=2):
+    """Aguarda dispositivos USB serem detectados"""
+    print("🔍 Verificando dispositivos USB...")
+    
+    for attempt in range(max_wait // check_interval):
+        if check_usb_devices():
+            print("✅ Dispositivos USB detectados!")
+            return True
+        
+        print(f"⏳ Aguardando dispositivos USB... ({attempt + 1}/{max_wait // check_interval})")
+        time.sleep(check_interval)
+    
+    print("⚠️ Timeout aguardando dispositivos USB")
+    return False
+
+
 def try_open_camera(width=320, height=240, fps=15, retry_delay=2.0):
     print("Abrindo webcam...")
     # Detecta sistema operacional para usar APIs apropriadas
@@ -138,6 +186,31 @@ def reconnect_camera(cap, width=320, height=240, fps=15):
         cap.release()
     time.sleep(1.0)  # Aguarda um pouco antes de tentar reconectar
     return try_open_camera(width, height, fps, retry_delay=0)
+
+
+def try_open_camera_with_retries(width=320, height=240, fps=15, max_retries=5, base_delay=5):
+    """Tenta abrir a câmera com múltiplas tentativas e delays crescentes"""
+    for attempt in range(max_retries):
+        print(f"🔄 Tentativa {attempt + 1}/{max_retries} de abrir a câmera...")
+        
+        # Verifica dispositivos USB antes de cada tentativa
+        if attempt > 0:
+            check_usb_devices()
+        
+        # Delay crescente: 3s, 5s, 8s, 12s, 18s
+        retry_delay = 3.0 if attempt == 0 else base_delay + (attempt * 3)
+        
+        cap = try_open_camera(width, height, fps, retry_delay)
+        if cap is not None:
+            return cap
+        
+        if attempt < max_retries - 1:
+            wait_time = base_delay + (attempt * 2)
+            print(f"⏳ Aguardando {wait_time}s antes da próxima tentativa...")
+            print("💡 Dica: Se a câmera não for detectada, tente desconectar e reconectar o cabo USB")
+            time.sleep(wait_time)
+    
+    return None
 
 
 # ============== SUPABASE SYNC ==============
@@ -256,8 +329,11 @@ def main():
             print(f"Também tentei: {tmp_cascade}")
         sys.exit(1)
 
-    # Abrir câmera com tentativa de múltiplas APIs/índices
-    cap = try_open_camera(width=320, height=240, fps=15, retry_delay=3.0)
+    # Aguarda dispositivos USB serem detectados (especialmente importante na inicialização)
+    wait_for_usb_devices(max_wait=30, check_interval=2)
+    
+    # Abrir câmera com múltiplas tentativas e delays crescentes
+    cap = try_open_camera_with_retries(width=320, height=240, fps=15, max_retries=5, base_delay=5)
     if cap is None:
         import platform
         system = platform.system().lower()
@@ -277,9 +353,9 @@ def main():
             print(" - Verifique permissões: sudo usermod -a -G video $USER")
             print(" - Reinicie após adicionar ao grupo video")
             print(" - Tente desconectar e reconectar a câmera USB")
+            print(" - Tente outra porta USB")
+            print(" - Verifique se outro processo está usando a câmera")
         
-        print(" - Tente outra porta USB")
-        print(" - Verifique se outro processo está usando a câmera")
         sys.exit(1)
 
     last_saved_ts = 0.0
