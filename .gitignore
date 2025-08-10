@@ -1,0 +1,29 @@
+# Python cache/temp
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+*.log
+
+# Virtual environments
+.venv/
+venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Project-specific (não commitar artefatos locais ou segredos)
+faces.db
+exported/
+env.ps1
+env.sh
+
+# Não subir o painel web neste repositório
+gerenciador.html
+
+# Outros dotenvs comuns
+.env
+.env.*
