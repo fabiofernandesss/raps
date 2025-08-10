@@ -88,11 +88,11 @@ def try_open_camera(target_width=640, target_height=480, fps=30):
                         return cap, actual_w, actual_h
                 
                 cap.release()
-                 
-             except Exception as e:
-                 print(f"   ❌ Erro com índice {idx} API {api_name}: {e}")
-                 if 'cap' in locals():
-                     cap.release()
+                
+            except Exception as e:
+                print(f"   ❌ Erro com índice {idx} API {api_name}: {e}")
+                if 'cap' in locals():
+                    cap.release()
     
     print("❌ Erro: não foi possível acessar a webcam")
     print("💡 Dicas:")
