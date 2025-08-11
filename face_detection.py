@@ -58,7 +58,8 @@ def detect_faces():
     
     with mp_face_detection.FaceDetection(model_selection=0, min_detection_confidence=0.8) as face_detection:
         frame_count = 0
-        while True:
+        try:
+            while True:
             ret, frame = cap.read()
             if not ret:
                 print("ERRO: Não foi possível capturar frame da câmera!")
@@ -116,13 +117,17 @@ def detect_faces():
                             print(f"Face salva: {filename} (confiança: {confidence:.2f})")
                             last_save_time = current_time
             
-            cv2.imshow('Face Detection', frame)
+            # Remover cv2.imshow para funcionar via SSH
+            # cv2.imshow('Face Detection', frame)
             
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+            # Sair com Ctrl+C
+             # if cv2.waitKey(1) & 0xFF == ord('q'):
+             #     break
+        except KeyboardInterrupt:
+            print("\nPrograma interrompido pelo usuário")
     
     cap.release()
-    cv2.destroyAllWindows()
+    # cv2.destroyAllWindows()  # Não necessário sem interface gráfica
 
 if __name__ == '__main__':
     detect_faces()
