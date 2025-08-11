@@ -9,23 +9,43 @@ mp_drawing = mp.solutions.drawing_utils
 
 def detect_faces():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    
+    # Verificar se a câmera foi aberta corretamente
+    if not cap.isOpened():
+        print("ERRO: Não foi possível abrir a câmera!")
+        return
+    
+    print("Câmera aberta com sucesso!")
+    
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 520)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 520)
     cap.set(cv2.CAP_PROP_FPS, 30)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
     
+    # Verificar as configurações da câmera
+    actual_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    actual_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    actual_fps = cap.get(cv2.CAP_PROP_FPS)
+    print(f"Configurações da câmera: {actual_width}x{actual_height} @ {actual_fps}fps")
+    
     if not os.path.exists('faces'):
         os.makedirs('faces')
     
-    last_save = 0
+    last_save_time = 0
     save_interval = 0.5
     
     with mp_face_detection.FaceDetection(model_selection=0, min_detection_confidence=0.8) as face_detection:
+        frame_count = 0
         while True:
             ret, frame = cap.read()
             if not ret:
+                print("ERRO: Não foi possível capturar frame da câmera!")
                 continue
+            
+            frame_count += 1
+            if frame_count % 30 == 0:  # Log a cada 30 frames
+                print(f"Frame {frame_count} capturado - Tamanho: {frame.shape}")
             
             # Processar diretamente no frame original (520x520)
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
