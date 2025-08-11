@@ -12,6 +12,7 @@ def detect_faces():
     cap = None
     for camera_index in [0, 1]:
         for backend in [cv2.CAP_V4L2, cv2.CAP_ANY]:
+            test_cap = None
             try:
                 test_cap = cv2.VideoCapture(camera_index, backend)
                 if test_cap.isOpened():
@@ -22,9 +23,10 @@ def detect_faces():
                         break
                     else:
                         test_cap.release()
-                except:
-                    if test_cap:
-                        test_cap.release()
+            except Exception as e:
+                print(f"Erro ao testar câmera {camera_index} com backend {backend}: {e}")
+                if test_cap:
+                    test_cap.release()
             if cap:
                 break
         if cap:
