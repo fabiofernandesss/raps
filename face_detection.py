@@ -8,11 +8,30 @@ mp_face_detection = mp.solutions.face_detection
 mp_drawing = mp.solutions.drawing_utils
 
 def detect_faces():
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    # Tentar diferentes backends e índices de câmera
+    cap = None
+    for camera_index in [0, 1]:
+        for backend in [cv2.CAP_V4L2, cv2.CAP_ANY]:
+            try:
+                test_cap = cv2.VideoCapture(camera_index, backend)
+                if test_cap.isOpened():
+                    ret, frame = test_cap.read()
+                    if ret and frame is not None:
+                        cap = test_cap
+                        print(f"Câmera encontrada: índice {camera_index}, backend {backend}")
+                        break
+                    else:
+                        test_cap.release()
+                except:
+                    if test_cap:
+                        test_cap.release()
+            if cap:
+                break
+        if cap:
+            break
     
-    # Verificar se a câmera foi aberta corretamente
-    if not cap.isOpened():
-        print("ERRO: Não foi possível abrir a câmera!")
+    if cap is None:
+        print("ERRO: Nenhuma câmera funcional encontrada!")
         return
     
     print("Câmera aberta com sucesso!")
