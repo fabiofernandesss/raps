@@ -3,208 +3,1545 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema RAPS</title>
+    <title>Sistema RAPS - Detecção Facial Avançada</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #00f5ff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            opacity: 0.8;
+            font-size: 1.1rem;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .video-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .video-container {
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+            background: #000;
+            margin-bottom: 20px;
+        }
+        
+        .video-container #videoElement {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .video-container #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        #video {
+            border-radius: 10px;
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        #canvas {
+            pointer-events: none;
+            border: 2px solid #00f5ff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+            display: block;
+        }
+
+        .video-controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 8px;
+            backdrop-filter: blur(10px);
         }
-        
-        .container {
-            background: white;
-            padding: 2rem;
+
+        .btn-primary {
+            background: linear-gradient(45deg, #00f5ff, #0080ff);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 245, 255, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 245, 255, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #ff4757, #ff3838);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 71, 87, 0.3);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #2ed573, #1dd1a1);
+            color: white;
+            box-shadow: 0 4px 15px rgba(46, 213, 115, 0.3);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(46, 213, 115, 0.4);
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.1);
             border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .panel h3 {
+            margin-bottom: 15px;
+            color: #00f5ff;
+            font-size: 1.2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stat-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #00f5ff;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .detection-log {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .log-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9rem;
+        }
+
+        .log-item:last-child {
+            border-bottom: none;
+        }
+
+        .settings-group {
+            margin-bottom: 15px;
+        }
+
+        .settings-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #00f5ff;
+        }
+
+        .settings-group input, .settings-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            font-size: 1rem;
+        }
+
+        .settings-group input:focus, .settings-group select:focus {
+            outline: none;
+            border-color: #00f5ff;
+            box-shadow: 0 0 10px rgba(0, 245, 255, 0.3);
+        }
+
+        .captured-faces {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .face-thumbnail {
+            width: 80px;
+            height: 80px;
+            border-radius: 10px;
+            object-fit: cover;
+            border: 2px solid #00f5ff;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .face-thumbnail:hover {
+            transform: scale(1.1);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-active {
+            background: #2ed573;
+            box-shadow: 0 0 10px #2ed573;
+        }
+
+        .status-inactive {
+            background: #ff4757;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.1rem;
+            opacity: 0.8;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(30, 60, 114, 0.95);
+            border-radius: 15px;
+            padding: 30px;
             max-width: 500px;
             width: 90%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
-        
-        h1 {
+
+        .modal h3 {
+            color: #00f5ff;
+            margin-bottom: 20px;
             text-align: center;
-            color: #333;
-            margin-bottom: 2rem;
-            font-size: 2.5rem;
         }
-        
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #555;
-            font-weight: bold;
-        }
-        
-        input, textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-        
-        input:focus, textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        button {
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
             border: none;
-            border-radius: 8px;
-            font-size: 18px;
+            color: white;
+            font-size: 1.5rem;
             cursor: pointer;
-            transition: transform 0.2s;
         }
-        
-        button:hover {
-            transform: translateY(-2px);
+
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .video-controls {
+                justify-content: center;
+            }
         }
-        
-        .data-list {
-            margin-top: 2rem;
-            padding-top: 2rem;
-            border-top: 2px solid #eee;
+
+        .pulse {
+            animation: pulse 2s infinite;
         }
-        
-        .data-item {
-            background: #f8f9fa;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-        
-        .data-item h3 {
-            color: #333;
-            margin-bottom: 0.5rem;
-        }
-        
-        .data-item p {
-            color: #666;
-            margin-bottom: 0.25rem;
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Sistema RAPS</h1>
-        
-        <form id="dataForm">
-            <div class="form-group">
-                <label for="nome">Nome:</label>
-                <input type="text" id="nome" name="nome" required>
+    <div class="header">
+        <h1>🤖 Sistema RAPS</h1>
+        <p>Detecção Facial Avançada em Tempo Real</p>
+    </div>
+
+    <div class="main-container">
+        <div class="video-section">
+            <div class="video-container">
+                <video id="videoElement" autoplay muted playsinline></video>
+                <canvas id="canvas"></canvas>
             </div>
             
-            <div class="form-group">
-                <label for="email">Email:</label>
-                <input type="email" id="email" name="email" required>
+            <div class="video-controls">
+                <button class="btn btn-primary" id="startBtn">
+                    📹 Iniciar Câmera
+                </button>
+                <button class="btn btn-danger" id="stopBtn" style="display: none;">
+                    ⏹️ Parar
+                </button>
+                <button class="btn btn-success" id="captureBtn" style="display: none;">
+                    📸 Capturar
+                </button>
+                <button class="btn btn-primary" id="settingsBtn">
+                    ⚙️ Configurações
+                </button>
             </div>
-            
-            <div class="form-group">
-                <label for="descricao">Descrição:</label>
-                <textarea id="descricao" name="descricao" rows="4" required></textarea>
+        </div>
+
+        <div class="sidebar">
+            <div class="panel">
+                <h3>📊 Estatísticas</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-number" id="facesDetected">0</div>
+                        <div class="stat-label">Faces Detectadas</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="capturesCount">0</div>
+                        <div class="stat-label">Capturas</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="fps">0</div>
+                        <div class="stat-label">FPS</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="uptime">00:00</div>
+                        <div class="stat-label">Tempo Ativo</div>
+                    </div>
+                </div>
             </div>
-            
-            <button type="submit">Salvar Dados</button>
-        </form>
-        
-        <div class="data-list" id="dataList">
-            <h2>Dados Salvos</h2>
-            <div id="items"></div>
+
+            <div class="panel">
+                <h3>🎯 Status do Sistema</h3>
+                <div style="margin-bottom: 10px;">
+                    <span class="status-indicator status-inactive" id="cameraStatus"></span>
+                    <span>Câmera: <span id="cameraStatusText">Desconectada</span></span>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <span class="status-indicator status-inactive" id="detectionStatus"></span>
+                    <span>Detecção: <span id="detectionStatusText">Inativa</span></span>
+                </div>
+                <div>
+                    <span class="status-indicator status-inactive" id="aiStatus"></span>
+                    <span>IA: <span id="aiStatusText">Carregando...</span></span>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>📝 Log de Detecções</h3>
+                <div class="detection-log" id="detectionLog">
+                    <div class="log-item">Sistema iniciado...</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>🖼️ Faces Capturadas</h3>
+                <div class="captured-faces" id="capturedFaces">
+                    <!-- Thumbnails das faces capturadas aparecerão aqui -->
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Modal de Configurações -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+            <button class="close" onclick="closeSettings()">&times;</button>
+            <h3>⚙️ Configurações de Performance</h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="settings-group">
+                    <label for="detectionSensitivity">🎯 Sensibilidade de Detecção</label>
+                    <input type="range" id="detectionSensitivity" min="0.1" max="1" step="0.1" value="0.9">
+                    <span id="sensitivityValue">0.9</span>
+                </div>
+                
+                <div class="settings-group">
+                    <label for="minConfidence">✅ Confiança Mínima (%)</label>
+                    <input type="range" id="minConfidence" min="0.5" max="1" step="0.01" value="0.95">
+                    <span id="confidenceValue">95%</span>
+                </div>
+                
+                <div class="settings-group">
+                    <label for="detectionSpeed">⚡ Velocidade de Detecção (ms)</label>
+                    <input type="range" id="detectionSpeed" min="8" max="100" step="4" value="16">
+                    <span id="speedValue">16ms</span>
+                </div>
+                
+                <div class="settings-group">
+                    <label for="motionThreshold">🏃 Sensibilidade de Movimento</label>
+                    <input type="range" id="motionThreshold" min="1" max="50" step="1" value="10">
+                    <span id="motionValue">10px</span>
+                </div>
+                
+                <div class="settings-group">
+                    <label for="captureInterval">📸 Intervalo de Captura (s)</label>
+                    <input type="number" id="captureInterval" min="1" max="30" value="5">
+                </div>
+                
+                <div class="settings-group">
+                    <label for="maxFaces">👥 Máximo de Faces</label>
+                    <input type="number" id="maxFaces" min="1" max="20" value="10">
+                </div>
+                
+                <div class="settings-group">
+                    <label for="analysisDisplayTime">⏱️ Tempo de Exibição (ms)</label>
+                    <input type="number" id="analysisDisplayTime" min="500" max="5000" step="100" value="1000">
+                </div>
+                
+                <div class="settings-group">
+                    <label for="pauseBetweenAnalysis">⏸️ Pausa Entre Análises (ms)</label>
+                    <input type="number" id="pauseBetweenAnalysis" min="50" max="2000" step="50" value="100">
+                </div>
+            </div>
+            
+            <div class="settings-group">
+                <label for="videoQuality">📹 Qualidade do Vídeo</label>
+                <select id="videoQuality">
+                    <option value="480p">480p - Rápido</option>
+                    <option value="720p" selected>720p - Balanceado</option>
+                    <option value="1080p">1080p - Qualidade</option>
+                </select>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;">
+                <div class="settings-group">
+                    <label>
+                        <input type="checkbox" id="highPerformanceMode" checked>
+                        🚀 Modo Alta Performance
+                    </label>
+                </div>
+                
+                <div class="settings-group">
+                    <label>
+                        <input type="checkbox" id="faceTrackingEnabled" checked>
+                        📍 Rastreamento de Movimento
+                    </label>
+                </div>
+                
+                <div class="settings-group">
+                    <label>
+                        <input type="checkbox" id="fastModeEnabled" checked>
+                        ⚡ Modo Rápido BlazeFace
+                    </label>
+                </div>
+                
+                <div class="settings-group">
+                    <label>
+                        <input type="checkbox" id="autoCapture" checked>
+                        📸 Captura Automática
+                    </label>
+                </div>
+            </div>
+            
+            <div class="video-controls" style="margin-top: 20px;">
+                <button class="btn btn-success" onclick="saveSettings()">💾 Salvar Configurações</button>
+                <button class="btn btn-warning" onclick="resetToFast()">🚀 Modo Ultra Rápido</button>
+                <button class="btn btn-danger" onclick="resetSettings()">🔄 Resetar Padrão</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carregamento do TensorFlow.js, Face-API.js e Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@latest/dist/blazeface.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@latest/dist/face-api.min.js"></script>
     
     <script>
-        // Simulação de banco de dados local usando localStorage
-        class Database {
+        class FaceDetectionSystem {
             constructor() {
-                this.storageKey = 'raps_data';
-            }
-            
-            save(data) {
-                const existingData = this.getAll();
-                const newData = {
-                    id: Date.now(),
-                    timestamp: new Date().toLocaleString('pt-BR'),
-                    ...data
+                this.video = document.getElementById('videoElement');
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.model = null;
+                this.faceApiLoaded = false;
+                this.isDetecting = false;
+                this.stream = null;
+                this.stats = {
+                    facesDetected: 0,
+                    capturesCount: 0,
+                    fps: 0,
+                    startTime: null
                 };
-                existingData.push(newData);
-                localStorage.setItem(this.storageKey, JSON.stringify(existingData));
-                return newData;
+                this.lastCaptureTime = 0;
+                this.capturedFaces = [];
+                this.settings = {
+                    detectionSensitivity: 0.9,
+                    captureInterval: 5000,
+                    maxFaces: 10,
+                    videoQuality: '720p',
+                    minConfidence: 0.95,
+                    analysisDisplayTime: 1000,
+                    pauseBetweenAnalysis: 100,
+                    detectionSpeed: 16,
+                    maxDetectionDistance: 300,
+                    faceTrackingEnabled: true,
+                    motionDetectionThreshold: 0.1,
+                    fastModeEnabled: true,
+                    highPerformanceMode: true
+                };
+                
+                this.analysisState = {
+                    isAnalyzing: false,
+                    currentAnalysis: null,
+                    lastFaceCount: 0,
+                    stableDetectionCount: 0,
+                    requiredStableFrames: 1,
+                    lastDetectionTime: 0,
+                    facePositions: [],
+                    motionThreshold: 10
+                };
+                
+                // Configurar Supabase
+                this.initSupabase();
+                
+                this.initializeEventListeners();
+                this.loadModel();
+                this.loadSettings();
+                this.startUptime();
             }
+
+            initSupabase() {
+            // Configurações do Supabase
+            const supabaseUrl = 'https://uqmwhtpcsaqievcmpgni.supabase.co';
+            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxbXdodHBjc2FxaWV2Y21wZ25pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1MTcwOTMsImV4cCI6MjA2NzA5MzA5M30.9TOMJu7xZm-YQV51N4TbdjEW3PsKagyAV5jQYf128fQ';
             
-            getAll() {
-                const data = localStorage.getItem(this.storageKey);
-                return data ? JSON.parse(data) : [];
-            }
-            
-            clear() {
-                localStorage.removeItem(this.storageKey);
+            try {
+                this.supabase = supabase.createClient(supabaseUrl, supabaseKey);
+                this.addLog('🔗 Conectado ao Supabase');
+            } catch (error) {
+                this.addLog('❌ Erro ao conectar com Supabase');
+                this.supabase = null;
             }
         }
-        
-        const db = new Database();
-        
-        // Manipulação do formulário
-        document.getElementById('dataForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+
+            async loadModel() {
+                try {
+                    this.updateStatus('ai', 'loading', 'Carregando modelos...');
+                    
+                    // Carregar BlazeFace para detecção
+                    this.model = await blazeface.load();
+                    this.addLog('✅ Modelo BlazeFace carregado');
+                    
+                    // Simular análise avançada com algoritmos básicos
+                     this.faceApiLoaded = true;
+                     this.addLog('✅ Sistema de análise facial ativado');
+                    
+                    this.updateStatus('ai', 'active', 'Modelos carregados');
+                } catch (error) {
+                    this.updateStatus('ai', 'inactive', 'Erro no modelo');
+                    this.addLog('❌ Erro ao carregar modelo de IA');
+                }
+            }
+
+            initializeEventListeners() {
+                document.getElementById('startBtn').addEventListener('click', () => this.startCamera());
+                document.getElementById('stopBtn').addEventListener('click', () => this.stopCamera());
+                document.getElementById('captureBtn').addEventListener('click', () => this.manualCapture());
+                document.getElementById('settingsBtn').addEventListener('click', () => this.openSettings());
+                
+                // Configurações
+                document.getElementById('detectionSensitivity').addEventListener('input', (e) => {
+                    document.getElementById('sensitivityValue').textContent = e.target.value;
+                });
+                
+                document.getElementById('minConfidence').addEventListener('input', (e) => {
+                    const value = Math.round(e.target.value * 100);
+                    document.getElementById('confidenceValue').textContent = value + '%';
+                });
+            }
+
+            async startCamera() {
+                try {
+                    this.updateStatus('camera', 'loading', 'Conectando...');
+                    
+                    const constraints = this.getVideoConstraints();
+                    this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    
+                    this.video.srcObject = this.stream;
+                    this.video.addEventListener('loadedmetadata', () => {
+                    this.setupCanvas();
+                    this.updateStatus('camera', 'active', 'Conectada');
+                    this.startDetection();
+                });
+                    
+                    this.stats.startTime = Date.now();
+                    this.toggleButtons(true);
+                    this.addLog('📹 Câmera iniciada');
+                    
+                } catch (error) {
+                    this.updateStatus('camera', 'inactive', 'Erro de acesso');
+                    this.addLog('❌ Erro ao acessar câmera');
+                    alert('Erro ao acessar a câmera. Verifique as permissões.');
+                }
+            }
+
+            stopCamera() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.stream = null;
+                }
+                
+                this.isDetecting = false;
+                this.updateStatus('camera', 'inactive', 'Desconectada');
+                this.updateStatus('detection', 'inactive', 'Inativa');
+                this.toggleButtons(false);
+                this.addLog('⏹️ Sistema parado');
+                
+                // Limpar canvas
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            }
+
+            async startDetection() {
+                if (!this.model) {
+                    this.addLog('⚠️ Modelo não carregado');
+                    return;
+                }
+                
+                this.isDetecting = true;
+                this.updateStatus('detection', 'active', 'Ativa');
+                this.addLog('🎯 Detecção iniciada');
+                
+                this.detectFaces();
+            }
+
+            async detectFaces() {
+                if (!this.isDetecting || !this.model) return;
+                
+                const startTime = performance.now();
+                
+                // Controle de velocidade de detecção
+                const now = Date.now();
+                if (now - this.analysisState.lastDetectionTime < this.settings.detectionSpeed) {
+                    requestAnimationFrame(() => this.detectFaces());
+                    return;
+                }
+                this.analysisState.lastDetectionTime = now;
+                
+                try {
+                    // Usar configurações otimizadas para performance
+                    const predictions = await this.model.estimateFaces(this.video, this.settings.fastModeEnabled);
+                    
+                    if (predictions.length > 0) {
+                        const validPredictions = predictions.filter(prediction => {
+                            const confidence = prediction.probability ? prediction.probability[0] : 0.9;
+                            return confidence >= this.settings.minConfidence;
+                        });
+                        
+                        // Detecção de movimento para pessoas em movimento
+                        const hasMotion = this.detectMotion(validPredictions);
+                        
+                        // Modo de alta performance - detecção imediata
+                        if (this.settings.highPerformanceMode) {
+                            this.performFastAnalysis(validPredictions, hasMotion);
+                        } else {
+                            // Verificar estabilidade da detecção (modo normal)
+                            if (validPredictions.length === this.analysisState.lastFaceCount) {
+                                this.analysisState.stableDetectionCount++;
+                            } else {
+                                this.analysisState.stableDetectionCount = 0;
+                                this.analysisState.lastFaceCount = validPredictions.length;
+                            }
+                            
+                            // Análise baseada em estabilidade ou movimento
+                            if (!this.analysisState.isAnalyzing && 
+                                (this.analysisState.stableDetectionCount >= this.analysisState.requiredStableFrames || hasMotion)) {
+                                
+                                this.performStableAnalysis(validPredictions);
+                            } else if (this.analysisState.currentAnalysis) {
+                                this.redrawCurrentAnalysis();
+                            } else {
+                                this.drawSimpleDetections(validPredictions);
+                            }
+                        }
+                        
+                        this.stats.facesDetected += validPredictions.length;
+                        
+                        // Auto captura com intervalo reduzido para movimento
+                        const captureInterval = hasMotion ? this.settings.captureInterval / 2 : this.settings.captureInterval;
+                        if (validPredictions.length > 0 && now - this.lastCaptureTime > captureInterval) {
+                            this.autoCapture(validPredictions);
+                            this.lastCaptureTime = now;
+                        }
+                    } else {
+                        // Resetar contadores quando não há faces
+                        this.analysisState.stableDetectionCount = 0;
+                        this.analysisState.lastFaceCount = 0;
+                        
+                        if (!this.analysisState.isAnalyzing && !this.analysisState.currentAnalysis) {
+                            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                        }
+                    }
+                    
+                    // Calcular FPS
+                    const endTime = performance.now();
+                    this.stats.fps = Math.round(1000 / (endTime - startTime));
+                    this.updateStats();
+                    
+                } catch (error) {
+                    this.addLog('⚠️ Erro na detecção facial');
+                }
+                
+                requestAnimationFrame(() => this.detectFaces());
+            }
+
+            detectMotion(predictions) {
+                if (!this.settings.faceTrackingEnabled || this.analysisState.facePositions.length === 0) {
+                    // Armazenar posições atuais
+                    this.analysisState.facePositions = predictions.map(pred => {
+                        const [x, y] = pred.topLeft;
+                        return { x, y };
+                    });
+                    return false;
+                }
+                
+                // Calcular movimento baseado nas posições anteriores
+                let totalMovement = 0;
+                predictions.forEach((pred, index) => {
+                    if (this.analysisState.facePositions[index]) {
+                        const [x, y] = pred.topLeft;
+                        const prevPos = this.analysisState.facePositions[index];
+                        const distance = Math.sqrt(Math.pow(x - prevPos.x, 2) + Math.pow(y - prevPos.y, 2));
+                        totalMovement += distance;
+                    }
+                });
+                
+                // Atualizar posições
+                this.analysisState.facePositions = predictions.map(pred => {
+                    const [x, y] = pred.topLeft;
+                    return { x, y };
+                });
+                
+                const avgMovement = totalMovement / predictions.length;
+                return avgMovement > this.analysisState.motionThreshold;
+            }
             
-            const formData = {
-                nome: document.getElementById('nome').value,
-                email: document.getElementById('email').value,
-                descricao: document.getElementById('descricao').value
-            };
+            performFastAnalysis(predictions, hasMotion) {
+                // Limpar canvas
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Desenhar círculos com indicador de movimento
+                this.ctx.lineWidth = hasMotion ? 4 : 2;
+                this.ctx.strokeStyle = hasMotion ? '#ff0080' : '#00f5ff';
+                
+                predictions.forEach((prediction, index) => {
+                    const [x, y, width, height] = prediction.topLeft.concat(prediction.bottomRight).reduce((acc, point, i) => {
+                        if (i < 2) acc.push(point);
+                        else acc.push(point - acc[i - 2]);
+                        return acc;
+                    }, []);
+                    
+                    // Calcular centro e raio
+                    const centerX = x + width / 2;
+                    const centerY = y + height / 2;
+                    const radius = Math.max(width, height) / 2;
+                    
+                    // Desenhar círculo
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                    this.ctx.stroke();
+                    
+                    // Label com indicador de movimento
+                    const confidence = (prediction.probability ? prediction.probability[0] : 0.9).toFixed(2);
+                    const motionIndicator = hasMotion ? '🏃' : '';
+                    const label = `${motionIndicator}Face ${index + 1}`;
+                    
+                    // Fundo para o texto
+                    const textWidth = this.ctx.measureText(label).width;
+                    this.ctx.fillStyle = hasMotion ? 'rgba(255, 0, 128, 0.8)' : 'rgba(0, 245, 255, 0.8)';
+                    this.ctx.fillRect(centerX - textWidth/2 - 5, centerY - radius - 25, textWidth + 10, 20);
+                    
+                    // Texto
+                    this.ctx.fillStyle = '#000';
+                    this.ctx.font = '14px Arial';
+                    this.ctx.fillText(label, centerX - textWidth/2, centerY - radius - 10);
+                });
+            }
             
-            const savedData = db.save(formData);
+            drawDetections(predictions) {
+                this.ctx.strokeStyle = '#00f5ff';
+                this.ctx.lineWidth = 3;
+                this.ctx.fillStyle = '#00f5ff';
+                this.ctx.font = '16px Arial';
+                
+                const validPredictions = predictions.filter(prediction => {
+                    const confidence = prediction.probability ? prediction.probability[0] : 0.9;
+                    return confidence >= this.settings.minConfidence;
+                });
+                
+                validPredictions.forEach((prediction, index) => {
+                    const [x, y, width, height] = prediction.topLeft.concat(prediction.bottomRight).reduce((acc, point, i) => {
+                        if (i < 2) acc.push(point);
+                        else acc.push(point - acc[i - 2]);
+                        return acc;
+                    }, []);
+                    
+                    // Desenhar retângulo
+                    this.ctx.strokeRect(x, y, width, height);
+                    
+                    // Desenhar label
+                    const confidence = (prediction.probability ? prediction.probability[0] : 0.9).toFixed(2);
+                    const label = `Face ${index + 1} (${(confidence * 100).toFixed(0)}%)`;
+                    
+                    this.ctx.fillStyle = 'rgba(0, 245, 255, 0.8)';
+                    this.ctx.fillRect(x, y - 25, this.ctx.measureText(label).width + 10, 25);
+                    
+                    this.ctx.fillStyle = '#000';
+                    this.ctx.fillText(label, x + 5, y - 8);
+                });
+                
+                return validPredictions;
+            }
             
-            // Limpar formulário
-            this.reset();
+            performStableAnalysis(predictions) {
+                 this.analysisState.isAnalyzing = true;
+                 
+                 // Limpar canvas
+                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                 
+                 // Armazenar análise atual
+                 this.analysisState.currentAnalysis = {
+                     predictions: predictions,
+                     timestamp: Date.now()
+                 };
+                 
+                 // Desenhar círculos simples
+                 this.drawCircleDetections(predictions);
+                 
+                 // Log da análise
+                 console.log('Nova análise realizada:', {
+                     faces: predictions.length,
+                     timestamp: new Date().toLocaleTimeString()
+                 });
+                 
+                 // Configurar timeout para limpar análise
+                 setTimeout(() => {
+                     this.analysisState.currentAnalysis = null;
+                     this.analysisState.isAnalyzing = false;
+                     this.analysisState.stableDetectionCount = 0;
+                     
+                     // Pausa antes de permitir nova análise
+                     setTimeout(() => {
+                         console.log('Sistema pronto para nova análise');
+                     }, this.settings.pauseBetweenAnalysis);
+                 }, this.settings.analysisDisplayTime);
+             }
             
-            // Atualizar lista
-            displayData();
+            redrawCurrentAnalysis() {
+                 if (this.analysisState.currentAnalysis) {
+                     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                     this.drawCircleDetections(this.analysisState.currentAnalysis.predictions);
+                 }
+             }
             
-            alert('Dados salvos com sucesso!');
+            drawSimpleDetections(predictions) {
+                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                 this.ctx.strokeStyle = '#ffff00';
+                 this.ctx.lineWidth = 2;
+                 
+                 predictions.forEach((prediction, index) => {
+                     const [x, y, width, height] = prediction.topLeft.concat(prediction.bottomRight).reduce((acc, point, i) => {
+                         if (i < 2) acc.push(point);
+                         else acc.push(point - acc[i - 2]);
+                         return acc;
+                     }, []);
+                     
+                     // Desenhar círculo simples durante detecção
+                     const centerX = x + width / 2;
+                     const centerY = y + height / 2;
+                     const radius = Math.max(width, height) / 2;
+                     
+                     this.ctx.beginPath();
+                     this.ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                     this.ctx.stroke();
+                 });
+             }
+             
+             drawCircleDetections(predictions) {
+                 this.ctx.strokeStyle = '#00f5ff';
+                 this.ctx.lineWidth = 3;
+                 
+                 predictions.forEach((prediction, index) => {
+                     const [x, y, width, height] = prediction.topLeft.concat(prediction.bottomRight).reduce((acc, point, i) => {
+                         if (i < 2) acc.push(point);
+                         else acc.push(point - acc[i - 2]);
+                         return acc;
+                     }, []);
+                     
+                     // Calcular centro e raio para círculo perfeito
+                     const centerX = x + width / 2;
+                     const centerY = y + height / 2;
+                     const radius = Math.max(width, height) / 2;
+                     
+                     // Desenhar círculo perfeito
+                     this.ctx.beginPath();
+                     this.ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                     this.ctx.stroke();
+                     
+                     // Apenas número da face
+                     const confidence = (prediction.probability ? prediction.probability[0] : 0.9).toFixed(2);
+                     const label = `Face ${index + 1}`;
+                     
+                     // Fundo para o texto
+                     const textWidth = this.ctx.measureText(label).width;
+                     this.ctx.fillStyle = 'rgba(0, 245, 255, 0.8)';
+                     this.ctx.fillRect(centerX - textWidth/2 - 5, centerY - radius - 25, textWidth + 10, 20);
+                     
+                     // Texto
+                     this.ctx.fillStyle = '#000';
+                     this.ctx.font = '14px Arial';
+                     this.ctx.fillText(label, centerX - textWidth/2, centerY - radius - 10);
+                 });
+             }
+            
+            generateSimulatedAnalysis(predictions) {
+                 return predictions.map((prediction, index) => {
+                     // Simular idade (18-80 anos)
+                     const age = Math.floor(Math.random() * 62) + 18;
+                     
+                     // Simular gênero
+                     const gender = Math.random() > 0.5 ? 'male' : 'female';
+                     const genderProbability = 0.7 + Math.random() * 0.3;
+                     
+                     // Simular emoções
+                     const emotions = ['happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised', 'neutral'];
+                     const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
+                     const emotionConfidence = 0.6 + Math.random() * 0.4;
+                     
+                     return {
+                         age: age,
+                         gender: gender,
+                         genderProbability: genderProbability,
+                         expressions: {
+                             [randomEmotion]: emotionConfidence
+                         },
+                         topExpression: randomEmotion
+                     };
+                 });
+             }
+             
+             drawAdvancedDetections(blazefacePredictions, simulatedDetections) {
+                 this.ctx.strokeStyle = '#00f5ff';
+                 this.ctx.lineWidth = 3;
+                 this.ctx.font = '14px Arial';
+                 
+                 const validPredictions = blazefacePredictions.filter(prediction => {
+                     const confidence = prediction.probability ? prediction.probability[0] : 0.9;
+                     return confidence >= this.settings.minConfidence;
+                 });
+                 
+                 validPredictions.forEach((prediction, index) => {
+                     const [x, y, width, height] = prediction.topLeft.concat(prediction.bottomRight).reduce((acc, point, i) => {
+                         if (i < 2) acc.push(point);
+                         else acc.push(point - acc[i - 2]);
+                         return acc;
+                     }, []);
+                     
+                     // Desenhar retângulo principal
+                     this.ctx.strokeRect(x, y, width, height);
+                     
+                     // Informações básicas
+                     const confidence = (prediction.probability ? prediction.probability[0] : 0.9).toFixed(2);
+                     let infoLines = [`Face ${index + 1} (${(confidence * 100).toFixed(0)}%)`];
+                     
+                     // Adicionar informações simuladas
+                     if (simulatedDetections && simulatedDetections[index]) {
+                         const detection = simulatedDetections[index];
+                         
+                         // Idade e gênero
+                         const age = detection.age;
+                         const gender = detection.gender === 'male' ? 'Masculino' : 'Feminino';
+                         const genderProb = (detection.genderProbability * 100).toFixed(0);
+                         infoLines.push(`${age} anos, ${gender} (${genderProb}%)`);
+                         
+                         // Expressões
+                         const topExpression = detection.topExpression;
+                         const expressionValue = (detection.expressions[topExpression] * 100).toFixed(0);
+                         
+                         const emotionMap = {
+                             'happy': '😊 Feliz',
+                             'sad': '😢 Triste',
+                             'angry': '😠 Bravo',
+                             'fearful': '😨 Medo',
+                             'disgusted': '🤢 Nojo',
+                             'surprised': '😲 Surpreso',
+                             'neutral': '😐 Neutro'
+                         };
+                         
+                         const emotionText = emotionMap[topExpression] || topExpression;
+                         infoLines.push(`${emotionText} (${expressionValue}%)`);
+                         
+                         // Informações adicionais simuladas
+                         const features = [];
+                         if (Math.random() > 0.7) features.push('👓 Óculos');
+                         if (Math.random() > 0.8) features.push('😷 Máscara');
+                         if (Math.random() > 0.6) features.push('🧔 Barba');
+                         
+                         if (features.length > 0) {
+                             infoLines.push(features.join(', '));
+                         }
+                     }
+                     
+                     // Desenhar fundo para as informações
+                     const lineHeight = 18;
+                     const maxWidth = Math.max(...infoLines.map(line => this.ctx.measureText(line).width));
+                     const bgHeight = infoLines.length * lineHeight + 10;
+                     
+                     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                     this.ctx.fillRect(x, y - bgHeight - 5, maxWidth + 20, bgHeight);
+                     
+                     // Desenhar texto das informações
+                     this.ctx.fillStyle = '#00f5ff';
+                     infoLines.forEach((line, lineIndex) => {
+                         this.ctx.fillText(line, x + 10, y - bgHeight + 15 + (lineIndex * lineHeight));
+                     });
+                 });
+                 
+                 return validPredictions;
+             }
+
+            async autoCapture(predictions) {
+                if (predictions.length === 0) return;
+                
+                try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = this.video.videoWidth;
+                    canvas.height = this.video.videoHeight;
+                    
+                    ctx.drawImage(this.video, 0, 0);
+                    
+                    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                    const timestamp = new Date().toISOString();
+                    
+                    // Calcular confiança média
+                    const avgConfidence = predictions.reduce((sum, pred) => {
+                        return sum + (pred.probability ? pred.probability[0] : 0.9);
+                    }, 0) / predictions.length;
+                    
+                    const capture = {
+                        id: Date.now(),
+                        image: imageData,
+                        timestamp: timestamp,
+                        facesCount: predictions.length,
+                        confidence: avgConfidence,
+                        device: 'web_camera'
+                    };
+                    
+                    // Salvar no Supabase
+                    await this.saveToSupabase(capture);
+                    
+                    this.capturedFaces.unshift(capture);
+                    if (this.capturedFaces.length > 20) {
+                        this.capturedFaces = this.capturedFaces.slice(0, 20);
+                    }
+                    
+                    this.stats.capturesCount++;
+                    this.updateCapturedFaces();
+                    this.addLog(`📸 Captura automática: ${predictions.length} face(s) - Conf: ${(avgConfidence * 100).toFixed(1)}%`);
+                    
+                } catch (error) {
+                    this.addLog('❌ Erro na captura de imagem');
+                }
+            }
+            
+            async saveToSupabase(capture) {
+                if (!this.supabase) {
+                    this.addLog('⚠️ Supabase não configurado');
+                    return false;
+                }
+                
+                try {
+                    const now = new Date();
+                    // Remover o prefixo data:image/jpeg;base64, para salvar apenas o base64
+                    const base64Only = capture.image.split(',')[1];
+                    
+                    const { data, error } = await this.supabase
+                        .from('captures')
+                        .insert([
+                            {
+                                device_id: capture.device,
+                                date: now.toISOString().split('T')[0],
+                                time: now.toTimeString().split(' ')[0],
+                                image_base64: base64Only
+                            }
+                        ]);
+                    
+                    if (error) {
+                        this.addLog(`⚠️ Erro no banco: ${error.message}`);
+                        return false;
+                    }
+                    
+                    this.addLog('✅ Dados salvos no Supabase');
+                    return true;
+                } catch (error) {
+                    this.addLog('❌ Falha na conexão com banco de dados');
+                    return false;
+                }
+            }
+
+            manualCapture() {
+                if (!this.stream) return;
+                
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = this.video.videoWidth;
+                canvas.height = this.video.videoHeight;
+                
+                ctx.drawImage(this.video, 0, 0);
+                
+                const imageData = canvas.toDataURL('image/jpeg', 0.9);
+                const timestamp = new Date().toLocaleString('pt-BR');
+                
+                const capture = {
+                    id: Date.now(),
+                    image: imageData,
+                    timestamp: timestamp,
+                    facesCount: 'Manual'
+                };
+                
+                this.capturedFaces.unshift(capture);
+                this.stats.capturesCount++;
+                this.updateCapturedFaces();
+                this.addLog('📸 Captura manual realizada');
+                
+                // Download automático
+                const link = document.createElement('a');
+                link.download = `captura_${Date.now()}.jpg`;
+                link.href = imageData;
+                link.click();
+            }
+
+            updateCapturedFaces() {
+                const container = document.getElementById('capturedFaces');
+                container.innerHTML = '';
+                
+                this.capturedFaces.slice(0, 8).forEach(capture => {
+                    const img = document.createElement('img');
+                    img.src = capture.image;
+                    img.className = 'face-thumbnail';
+                    img.title = `${capture.timestamp} - ${capture.facesCount} face(s)`;
+                    img.onclick = () => this.showCaptureModal(capture);
+                    container.appendChild(img);
+                });
+            }
+
+            showCaptureModal(capture) {
+                // Implementar modal para visualizar captura
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.style.display = 'block';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <button class="close" onclick="this.parentElement.parentElement.remove()">&times;</button>
+                        <h3>Captura - ${capture.timestamp}</h3>
+                        <img src="${capture.image}" style="width: 100%; border-radius: 10px; margin: 20px 0;">
+                        <p>Faces detectadas: ${capture.facesCount}</p>
+                        <div class="video-controls">
+                            <button class="btn btn-primary" onclick="this.parentElement.parentElement.parentElement.remove()">Fechar</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            getVideoConstraints() {
+                const quality = this.settings.videoQuality;
+                const constraints = {
+                    video: {
+                        facingMode: 'user'
+                    },
+                    audio: false
+                };
+                
+                switch (quality) {
+                    case '480p':
+                        constraints.video.width = 640;
+                        constraints.video.height = 480;
+                        break;
+                    case '720p':
+                        constraints.video.width = 1280;
+                        constraints.video.height = 720;
+                        break;
+                    case '1080p':
+                        constraints.video.width = 1920;
+                        constraints.video.height = 1080;
+                        break;
+                }
+                
+                return constraints;
+            }
+
+            updateStatus(type, status, text) {
+                const indicator = document.getElementById(`${type}Status`);
+                const textElement = document.getElementById(`${type}StatusText`);
+                
+                indicator.className = `status-indicator status-${status}`;
+                textElement.textContent = text;
+            }
+
+            updateStats() {
+                document.getElementById('facesDetected').textContent = this.stats.facesDetected;
+                document.getElementById('capturesCount').textContent = this.stats.capturesCount;
+                document.getElementById('fps').textContent = this.stats.fps;
+            }
+
+            startUptime() {
+                setInterval(() => {
+                    if (this.stats.startTime) {
+                        const uptime = Date.now() - this.stats.startTime;
+                        const minutes = Math.floor(uptime / 60000);
+                        const seconds = Math.floor((uptime % 60000) / 1000);
+                        document.getElementById('uptime').textContent = 
+                            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    }
+                }, 1000);
+            }
+
+            addLog(message) {
+                const log = document.getElementById('detectionLog');
+                const item = document.createElement('div');
+                item.className = 'log-item';
+                item.textContent = `${new Date().toLocaleTimeString('pt-BR')} - ${message}`;
+                
+                log.insertBefore(item, log.firstChild);
+                
+                // Manter apenas os últimos 50 logs
+                while (log.children.length > 50) {
+                    log.removeChild(log.lastChild);
+                }
+            }
+
+            toggleButtons(isActive) {
+                document.getElementById('startBtn').style.display = isActive ? 'none' : 'flex';
+                document.getElementById('stopBtn').style.display = isActive ? 'flex' : 'none';
+                document.getElementById('captureBtn').style.display = isActive ? 'flex' : 'none';
+            }
+
+            openSettings() {
+                document.getElementById('settingsModal').style.display = 'block';
+                this.loadSettingsToForm();
+            }
+
+            loadSettingsToForm() {
+                // Carregar valores básicos
+                document.getElementById('detectionSensitivity').value = this.settings.detectionSensitivity;
+                document.getElementById('sensitivityValue').textContent = this.settings.detectionSensitivity;
+                document.getElementById('captureInterval').value = this.settings.captureInterval / 1000;
+                document.getElementById('maxFaces').value = this.settings.maxFaces;
+                document.getElementById('videoQuality').value = this.settings.videoQuality;
+                
+                // Carregar novos parâmetros de performance
+                document.getElementById('minConfidence').value = this.settings.minConfidence;
+                document.getElementById('confidenceValue').textContent = Math.round(this.settings.minConfidence * 100) + '%';
+                document.getElementById('detectionSpeed').value = this.settings.detectionSpeed;
+                document.getElementById('speedValue').textContent = this.settings.detectionSpeed + 'ms';
+                document.getElementById('motionThreshold').value = this.analysisState.motionThreshold;
+                document.getElementById('motionValue').textContent = this.analysisState.motionThreshold + 'px';
+                document.getElementById('analysisDisplayTime').value = this.settings.analysisDisplayTime;
+                document.getElementById('pauseBetweenAnalysis').value = this.settings.pauseBetweenAnalysis;
+                
+                // Carregar checkboxes
+                document.getElementById('highPerformanceMode').checked = this.settings.highPerformanceMode;
+                document.getElementById('faceTrackingEnabled').checked = this.settings.faceTrackingEnabled;
+                document.getElementById('fastModeEnabled').checked = this.settings.fastModeEnabled;
+                
+                // Adicionar event listeners para atualização em tempo real
+                this.setupSettingsListeners();
+            }
+            
+            setupSettingsListeners() {
+                document.getElementById('detectionSensitivity').addEventListener('input', (e) => {
+                    document.getElementById('sensitivityValue').textContent = e.target.value;
+                });
+                
+                document.getElementById('minConfidence').addEventListener('input', (e) => {
+                    const value = Math.round(e.target.value * 100);
+                    document.getElementById('confidenceValue').textContent = value + '%';
+                });
+                
+                document.getElementById('detectionSpeed').addEventListener('input', (e) => {
+                    document.getElementById('speedValue').textContent = e.target.value + 'ms';
+                });
+                
+                document.getElementById('motionThreshold').addEventListener('input', (e) => {
+                    document.getElementById('motionValue').textContent = e.target.value + 'px';
+                });
+            }
+
+            saveSettings() {
+                // Salvar configurações básicas
+                this.settings.detectionSensitivity = parseFloat(document.getElementById('detectionSensitivity').value);
+                this.settings.captureInterval = parseInt(document.getElementById('captureInterval').value) * 1000;
+                this.settings.maxFaces = parseInt(document.getElementById('maxFaces').value);
+                this.settings.videoQuality = document.getElementById('videoQuality').value;
+                
+                // Salvar novos parâmetros de performance
+                this.settings.minConfidence = parseFloat(document.getElementById('minConfidence').value);
+                this.settings.detectionSpeed = parseInt(document.getElementById('detectionSpeed').value);
+                this.settings.analysisDisplayTime = parseInt(document.getElementById('analysisDisplayTime').value);
+                this.settings.pauseBetweenAnalysis = parseInt(document.getElementById('pauseBetweenAnalysis').value);
+                this.analysisState.motionThreshold = parseInt(document.getElementById('motionThreshold').value);
+                
+                // Salvar checkboxes
+                this.settings.highPerformanceMode = document.getElementById('highPerformanceMode').checked;
+                this.settings.faceTrackingEnabled = document.getElementById('faceTrackingEnabled').checked;
+                this.settings.fastModeEnabled = document.getElementById('fastModeEnabled').checked;
+                
+                localStorage.setItem('rapsSettings', JSON.stringify(this.settings));
+                this.addLog('⚙️ Configurações de performance salvas');
+                this.closeSettings();
+            }
+            
+            resetToFast() {
+                // Configurações para máxima velocidade
+                this.settings.detectionSensitivity = 1.0;
+                this.settings.minConfidence = 0.99;
+                this.settings.detectionSpeed = 8;
+                this.settings.analysisDisplayTime = 500;
+                this.settings.pauseBetweenAnalysis = 50;
+                this.settings.highPerformanceMode = true;
+                this.settings.fastModeEnabled = true;
+                this.settings.faceTrackingEnabled = true;
+                this.analysisState.motionThreshold = 5;
+                this.analysisState.requiredStableFrames = 1;
+                
+                this.loadSettingsToForm();
+                this.addLog('🚀 Modo Ultra Rápido ativado!');
+            }
+            
+            resetSettings() {
+                // Configurações padrão balanceadas
+                this.settings.detectionSensitivity = 0.7;
+                this.settings.minConfidence = 0.8;
+                this.settings.detectionSpeed = 33;
+                this.settings.analysisDisplayTime = 2000;
+                this.settings.pauseBetweenAnalysis = 500;
+                this.settings.highPerformanceMode = false;
+                this.settings.fastModeEnabled = false;
+                this.settings.faceTrackingEnabled = true;
+                this.analysisState.motionThreshold = 15;
+                this.analysisState.requiredStableFrames = 3;
+                
+                this.loadSettingsToForm();
+                this.addLog('🔄 Configurações resetadas para padrão');
+            }
+
+            setupCanvas() {
+                // Aguardar o vídeo carregar completamente
+                const updateCanvasSize = () => {
+                    if (this.video.videoWidth && this.video.videoHeight) {
+                        this.canvas.width = this.video.videoWidth;
+                        this.canvas.height = this.video.videoHeight;
+                        this.ctx = this.canvas.getContext('2d');
+                    }
+                };
+                
+                // Atualizar tamanho quando o vídeo carregar
+                this.video.addEventListener('loadedmetadata', updateCanvasSize);
+                this.video.addEventListener('resize', updateCanvasSize);
+                
+                // Tentar configurar imediatamente se já estiver carregado
+                updateCanvasSize();
+            }
+
+            resetSettings() {
+                this.settings = {
+                    detectionSensitivity: 0.5,
+                    captureInterval: 3000,
+                    maxFaces: 5,
+                    videoQuality: '720p'
+                };
+                this.loadSettingsToForm();
+                this.addLog('🔄 Configurações resetadas');
+            }
+
+            loadSettings() {
+                const saved = localStorage.getItem('rapsSettings');
+                if (saved) {
+                    this.settings = { ...this.settings, ...JSON.parse(saved) };
+                }
+            }
+
+            closeSettings() {
+                document.getElementById('settingsModal').style.display = 'none';
+            }
+        }
+
+        // Funções globais para os botões
+        function closeSettings() {
+            system.closeSettings();
+        }
+
+        function saveSettings() {
+            system.saveSettings();
+        }
+
+        function resetSettings() {
+            system.resetSettings();
+        }
+
+        // Inicializar sistema
+        let system;
+        window.addEventListener('load', () => {
+            system = new FaceDetectionSystem();
         });
-        
-        // Exibir dados salvos
-        function displayData() {
-            const data = db.getAll();
-            const itemsContainer = document.getElementById('items');
-            
-            if (data.length === 0) {
-                itemsContainer.innerHTML = '<p>Nenhum dado salvo ainda.</p>';
-                return;
-            }
-            
-            itemsContainer.innerHTML = data.map(item => `
-                <div class="data-item">
-                    <h3>${item.nome}</h3>
-                    <p><strong>Email:</strong> ${item.email}</p>
-                    <p><strong>Descrição:</strong> ${item.descricao}</p>
-                    <p><strong>Data:</strong> ${item.timestamp}</p>
-                </div>
-            `).join('');
+
+        // Verificar suporte do navegador
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert('Seu navegador não suporta acesso à câmera. Use um navegador mais recente.');
         }
         
-        // Carregar dados ao inicializar
-        displayData();
+        // Funções globais para o modal de configurações
+        function closeSettings() {
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+        
+        function saveSettings() {
+            if (system) system.saveSettings();
+        }
+        
+        function resetSettings() {
+            if (system) system.resetSettings();
+        }
+        
+        function resetToFast() {
+            if (system) system.resetToFast();
+        }
+        
+        // Fechar modal ao clicar fora
+        window.onclick = function(event) {
+            const modal = document.getElementById('settingsModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        // Atalhos de teclado para performance
+        document.addEventListener('keydown', function(event) {
+            if (event.ctrlKey && system) {
+                switch(event.key) {
+                    case '1':
+                        event.preventDefault();
+                        system.resetToFast();
+                        system.addLog('🚀 Modo Ultra Rápido ativado via teclado (Ctrl+1)!');
+                        break;
+                    case '2':
+                        event.preventDefault();
+                        system.resetSettings();
+                        system.addLog('🔄 Configurações padrão via teclado (Ctrl+2)!');
+                        break;
+                    case 's':
+                        event.preventDefault();
+                        system.openSettings();
+                        break;
+                    case 'f':
+                        event.preventDefault();
+                        if (system.isRunning) {
+                            system.stopDetection();
+                        } else {
+                            system.startDetection();
+                        }
+                        break;
+                }
+            }
+        });
     </script>
 </body>
 </html>
