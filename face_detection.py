@@ -21,7 +21,7 @@ def detect_faces():
     last_save = 0
     save_interval = 0.5
     
-    with mp_face_detection.FaceDetection(model_selection=0, min_detection_confidence=0.7) as face_detection:
+    with mp_face_detection.FaceDetection(model_selection=0, min_detection_confidence=0.8) as face_detection:
         while True:
             ret, frame = cap.read()
             if not ret:
@@ -35,6 +35,11 @@ def detect_faces():
             
             if results.detections:
                 for detection in results.detections:
+                    # Verificar se a confiança da detecção é alta o suficiente
+                    confidence = detection.score[0]
+                    if confidence < 0.85:
+                        continue
+                    
                     bbox = detection.location_data.relative_bounding_box
                     h, w = 540, 960
                     x = int(bbox.xmin * w)
@@ -42,18 +47,37 @@ def detect_faces():
                     width = int(bbox.width * w)
                     height = int(bbox.height * h)
                     
+                    # Validar tamanho mínimo e máximo do rosto
+                    if width < 30 or height < 30 or width > 400 or height > 400:
+                        continue
+                    
+                    # Validar proporção do rosto (deve ser aproximadamente quadrado)
+                    aspect_ratio = width / height
+                    if aspect_ratio < 0.6 or aspect_ratio > 1.4:
+                        continue
+                    
                     x_full = int(x * 2)
                     y_full = int(y * 2)
                     width_full = int(width * 2)
                     height_full = int(height * 2)
                     
-                    cv2.rectangle(frame, (x_full, y_full), (x_full + width_full, y_full + height_full), (0, 255, 0), 2)
+                    # Garantir que as coordenadas estão dentro dos limites da imagem
+                    x_full = max(0, x_full)
+                    y_full = max(0, y_full)
+                    x_end = min(frame.shape[1], x_full + width_full)
+                    y_end = min(frame.shape[0], y_full + height_full)
+                    
+                    cv2.rectangle(frame, (x_full, y_full), (x_end, y_end), (0, 255, 0), 2)
+                    cv2.putText(frame, f"Face: {confidence:.2f}", (x_full, y_full-10), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
                     
                     if current_time - last_save > save_interval:
-                        face = frame[y_full:y_full+height_full, x_full:x_full+width_full]
-                        if face.size > 0:
-                            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
-                            cv2.imwrite(f'faces/face_{timestamp}.jpg', face)
+                        face_roi = frame[y_full:y_end, x_full:x_end]
+                        if face_roi.size > 0 and face_roi.shape[0] > 50 and face_roi.shape[1] > 50:
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+                            filename = f"faces/face_{timestamp}_conf{confidence:.2f}.jpg"
+                            cv2.imwrite(filename, face_roi)
+                            print(f"Face salva: {filename} (confiança: {confidence:.2f})")
                             last_save = current_time
             
             cv2.imshow('Face Detection', frame)
