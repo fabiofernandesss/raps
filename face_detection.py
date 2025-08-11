@@ -9,8 +9,8 @@ mp_drawing = mp.solutions.drawing_utils
 
 def detect_faces():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 520)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 520)
     cap.set(cv2.CAP_PROP_FPS, 30)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
@@ -27,8 +27,8 @@ def detect_faces():
             if not ret:
                 continue
             
-            small_frame = cv2.resize(frame, (960, 540))
-            rgb_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+            # Processar diretamente no frame original (520x520)
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = face_detection.process(rgb_frame)
             
             current_time = time.time()
@@ -41,14 +41,14 @@ def detect_faces():
                         continue
                     
                     bbox = detection.location_data.relative_bounding_box
-                    h, w = 540, 960
+                    h, w = frame.shape[:2]
                     x = int(bbox.xmin * w)
                     y = int(bbox.ymin * h)
                     width = int(bbox.width * w)
                     height = int(bbox.height * h)
                     
                     # Validar tamanho mínimo e máximo do rosto
-                    if width < 30 or height < 30 or width > 400 or height > 400:
+                    if width < 20 or height < 20 or width > 300 or height > 300:
                         continue
                     
                     # Validar proporção do rosto (deve ser aproximadamente quadrado)
@@ -56,29 +56,24 @@ def detect_faces():
                     if aspect_ratio < 0.6 or aspect_ratio > 1.4:
                         continue
                     
-                    x_full = int(x * 2)
-                    y_full = int(y * 2)
-                    width_full = int(width * 2)
-                    height_full = int(height * 2)
-                    
                     # Garantir que as coordenadas estão dentro dos limites da imagem
-                    x_full = max(0, x_full)
-                    y_full = max(0, y_full)
-                    x_end = min(frame.shape[1], x_full + width_full)
-                    y_end = min(frame.shape[0], y_full + height_full)
+                    x = max(0, x)
+                    y = max(0, y)
+                    x_end = min(w, x + width)
+                    y_end = min(h, y + height)
                     
-                    cv2.rectangle(frame, (x_full, y_full), (x_end, y_end), (0, 255, 0), 2)
-                    cv2.putText(frame, f"Face: {confidence:.2f}", (x_full, y_full-10), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                    cv2.rectangle(frame, (x, y), (x_end, y_end), (0, 255, 0), 2)
+                    cv2.putText(frame, f"Face: {confidence:.2f}", (x, y-10), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
                     
-                    if current_time - last_save > save_interval:
-                        face_roi = frame[y_full:y_end, x_full:x_end]
-                        if face_roi.size > 0 and face_roi.shape[0] > 50 and face_roi.shape[1] > 50:
+                    if current_time - last_save_time >= save_interval:
+                        face_roi = frame[y:y_end, x:x_end]
+                        if face_roi.size > 0 and face_roi.shape[0] > 30 and face_roi.shape[1] > 30:
                             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
                             filename = f"faces/face_{timestamp}_conf{confidence:.2f}.jpg"
                             cv2.imwrite(filename, face_roi)
                             print(f"Face salva: {filename} (confiança: {confidence:.2f})")
-                            last_save = current_time
+                            last_save_time = current_time
             
             cv2.imshow('Face Detection', frame)
             
