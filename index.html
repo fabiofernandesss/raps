@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema RAPS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #555;
+            font-weight: bold;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .data-list {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid #eee;
+        }
+        
+        .data-item {
+            background: #f8f9fa;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .data-item h3 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        
+        .data-item p {
+            color: #666;
+            margin-bottom: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sistema RAPS</h1>
+        
+        <form id="dataForm">
+            <div class="form-group">
+                <label for="nome">Nome:</label>
+                <input type="text" id="nome" name="nome" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="descricao">Descrição:</label>
+                <textarea id="descricao" name="descricao" rows="4" required></textarea>
+            </div>
+            
+            <button type="submit">Salvar Dados</button>
+        </form>
+        
+        <div class="data-list" id="dataList">
+            <h2>Dados Salvos</h2>
+            <div id="items"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Simulação de banco de dados local usando localStorage
+        class Database {
+            constructor() {
+                this.storageKey = 'raps_data';
+            }
+            
+            save(data) {
+                const existingData = this.getAll();
+                const newData = {
+                    id: Date.now(),
+                    timestamp: new Date().toLocaleString('pt-BR'),
+                    ...data
+                };
+                existingData.push(newData);
+                localStorage.setItem(this.storageKey, JSON.stringify(existingData));
+                return newData;
+            }
+            
+            getAll() {
+                const data = localStorage.getItem(this.storageKey);
+                return data ? JSON.parse(data) : [];
+            }
+            
+            clear() {
+                localStorage.removeItem(this.storageKey);
+            }
+        }
+        
+        const db = new Database();
+        
+        // Manipulação do formulário
+        document.getElementById('dataForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                nome: document.getElementById('nome').value,
+                email: document.getElementById('email').value,
+                descricao: document.getElementById('descricao').value
+            };
+            
+            const savedData = db.save(formData);
+            
+            // Limpar formulário
+            this.reset();
+            
+            // Atualizar lista
+            displayData();
+            
+            alert('Dados salvos com sucesso!');
+        });
+        
+        // Exibir dados salvos
+        function displayData() {
+            const data = db.getAll();
+            const itemsContainer = document.getElementById('items');
+            
+            if (data.length === 0) {
+                itemsContainer.innerHTML = '<p>Nenhum dado salvo ainda.</p>';
+                return;
+            }
+            
+            itemsContainer.innerHTML = data.map(item => `
+                <div class="data-item">
+                    <h3>${item.nome}</h3>
+                    <p><strong>Email:</strong> ${item.email}</p>
+                    <p><strong>Descrição:</strong> ${item.descricao}</p>
+                    <p><strong>Data:</strong> ${item.timestamp}</p>
+                </div>
+            `).join('');
+        }
+        
+        // Carregar dados ao inicializar
+        displayData();
+    </script>
+</body>
+</html>
